@@ -1,7 +1,10 @@
-//#pragma semicolon 1
 #include <amxmodx>
 #include <amxmisc>
-#include <cromchat>
+#if AMXX_VERSION_NUM < 190
+	#include <cromchat>
+#endif
+
+#pragma semicolon 1
 
 //=====================================
 //  VERSION CHECK
@@ -11,16 +14,17 @@
 #endif
 
 #define PLUGIN			"Music Menu Advance"
-#define VERSION			"3.03a"
+#define VERSION			"3.04"
 #define AUTHOR			"Aoi.Kagase"
 
 #define MEDIA_LIST		"bgmlist.ini"	// in configdir.
 
 new Array:g_menu_title;
 new Array:g_file_path;
+new Array:g_bgm_no;
 
-new g_loadsong;
-new gc_loadsong;
+new g_loadbgm;
+new gc_loadbgm;
 
 stock split_string_amxx(const szSource[], const szDelim[], szParsed[], iMaxChars)
 {
@@ -33,11 +37,11 @@ public plugin_init()
 	register_plugin(PLUGIN, VERSION, AUTHOR);
 
 #if AMXX_VERSION_NUM < 190
-	g_loadsong  = register_cvar("amx_mma_loadingsong", "1");
-	gc_loadsong = get_pcvar_num(g_loadsong);
+	g_loadbgm  = register_cvar("amx_mma_loadingsong", "1");
+	gc_loadbgm = get_pcvar_num(g_loadbgm);
 #else
-	g_loadsong  = create_cvar("amx_mma_loadingsong", "1");
-	bind_pcvar_num(g_loadsong, gc_loadsong);
+	g_loadbgm  = create_cvar("amx_mma_loadingsong", "1");
+	bind_pcvar_num(g_loadbgm, gc_loadbgm);
 #endif
 	// Add your code here...
 	register_clcmd("mma", "cmdBgmMenu", -1, " - shows a menu of a Music commands");
@@ -121,6 +125,7 @@ load_bgm_files(sFileName[])
 
 	g_menu_title 	= ArrayCreate(32);
 	g_file_path		= ArrayCreate(64);
+	g_bgm_no		= ArrayCreate();
 
 	while(!feof(fp))
 	{
@@ -153,6 +158,7 @@ load_bgm_files(sFileName[])
 					formatex(aFilePath, charsmax(aFilePath), "%s", sBlock);
 					ArrayPushArray(g_menu_title,aMenuTitle);
 					ArrayPushArray(g_file_path,	aFilePath);
+					ArrayPushArray(g_bgm_no, iCount);
 					iCount++;
 				}
 				else
@@ -169,7 +175,7 @@ load_bgm_files(sFileName[])
 
 public client_connect(id)
 {
-	if(gc_loadsong)
+	if(gc_loadbgm)
 	{
 		if (!is_user_bot(id))
 		{
@@ -227,7 +233,10 @@ music_showmenu(id)
 
     // Create a variable to hold the menu
 	new menu = menu_create("Music Menu: BGM-List", "music_menu_handler");
-	menu_additem(menu, "STOP BGM.", "stop", 0);
+	menu_additem(menu, "Play All. (In Shuffle)",	"allshuffle",	0);
+	menu_additem(menu, "Play All. (In Order)",		"all", 			0);
+	menu_additem(menu, "STOP BGM.", 				"stop", 		0);
+
 	for(new i = 0; i < ArraySize(g_menu_title); i++)
 	{
 		ArrayGetString(g_menu_title, i, aMenuTitle, charsmax(aMenuTitle));
@@ -257,10 +266,16 @@ public music_menu_handler(id, menu, item)
 	// heres the function that will give us that information ( since it doesnt magicaly appear )
 	menu_item_getinfo(menu, item, _access, szData, charsmax(szData), szName, charsmax(szName), item_callback);
 
-	client_cmd(id, "mp3 %s", szData);
 
 	if (equali("stop", szData))
+	{
+		client_cmd(id, "mp3 %s", szData);
 		client_print_color(id, print_chat, "^4[MMA] ^1BGM Stopped.");
+	}
+	else if (equali("all", szData))
+	{
+		
+	}
 	else
 		client_print_color(id, print_chat, "^4[MMA] ^1BGM Start!:^3[%s]", szName);
 
@@ -272,4 +287,18 @@ public plugin_end()
 {
 	ArrayDestroy(g_menu_title);
 	ArrayDestroy(g_file_path);
+	ArrayDestroy(g_bgm_no);
+}
+
+random_shuffle()
+{
+	new a, b, tmp;
+	for(new i = ArraySize(g_bgm_no); i > 1; --i)
+	{
+		a	= i - 1;
+		b	= random_num(0, ArraySize(g_bgm_no) - 1);
+		tmp = ArrayGetCell(g_bgm_no, a);
+		ArraySetCell(g_bgm_no, a, ArrayGetCell(g_bgm_no, b));
+		ArraySetCell(g_bgm_no, b, tmp);
+    }
 }
