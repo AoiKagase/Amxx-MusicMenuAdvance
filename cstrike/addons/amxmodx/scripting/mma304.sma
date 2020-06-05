@@ -276,6 +276,10 @@ public music_menu_handler(id, menu, item)
 	{
 		
 	}
+	else if (equali("allshuffle", szData))
+	{
+		
+	}
 	else
 		client_print_color(id, print_chat, "^4[MMA] ^1BGM Start!:^3[%s]", szName);
 
