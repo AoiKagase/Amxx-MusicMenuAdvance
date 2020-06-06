@@ -50,6 +50,7 @@ enum _:BGM_LIST
 enum _:BGM_CONFIG
 {
 	SHUFFLE,
+	LOOP,
 	Float:VOLUME,
 
 }
@@ -276,7 +277,6 @@ public client_disconnected(id)
 
 public set_mp3_volume(id, const cvar[], const value[])
 {
-	server_print("%s %s", cvar, value);
 	g_config[id][VOLUME] = str_to_float(value);
 }
 
@@ -317,9 +317,9 @@ config_showmenu(id)
 {
 	new menu = menu_create("Music Menu: Config", "config_menu_handler");
 	menu_additem(menu, "Playlist Mode^t",	"",	 0, g_config_callback);
+	menu_additem(menu, "Loop Mode^t",	"",	 0, g_config_callback);
 	menu_additem(menu, "Volume Up",		"",	 0, g_config_callback);
 	menu_additem(menu, "Volume Down",	"",	 0, g_config_callback);
-
 
 	new volbar[] = "VOL:\r[||||||||||||||||||||||\r]";
 	new pos = 7 + (floatround(g_config[id][VOLUME] * 10.0, floatround_floor) * 2);
@@ -441,6 +441,13 @@ public music_menu_handler(id, menu, item)
 			formatex(szNum, charsmax(szNum), "%d %d", 0, 1);
 		else
 			formatex(szNum, charsmax(szNum), "%d %d", 0, 0);
+
+		if (task_exists(id + TASK_PLAYLIST))
+		{
+			g_isPlaying[id] = false;
+			client_cmd(id, "mp3 stop");
+			remove_task(id + TASK_PLAYLIST);
+		}
 
 		set_task(0.1, "playlist_playing", id + TASK_PLAYLIST, szNum, sizeof(szNum));
 		client_print_color(id, print_chat, "^4[MMA] ^1BGM Start!:^3Playlist.");
