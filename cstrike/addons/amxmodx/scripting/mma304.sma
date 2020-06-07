@@ -91,8 +91,8 @@ public plugin_init()
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR);
 
-	g_pcvars[LOADING_BGM] 	= create_cvar("amx_mma_loading",  		"1");
-	g_pcvars[ROUND_BGM]	  	= create_cvar("amx_mma_round",			"1");
+	g_pcvars[LOADING_BGM] 	= create_cvar("amx_mma_loading","1");
+	g_pcvars[ROUND_BGM]	  	= create_cvar("amx_mma_round",	"1");
 
 	bind_pcvar_num		(g_pcvars[LOADING_BGM], g_values[V_LOADING_BGM]);
 	bind_pcvar_num		(g_pcvars[ROUND_BGM],	g_values[V_ROUND_BGM]);
@@ -402,20 +402,20 @@ public config_menu_handler(id, menu, item)
 music_showmenu(id)
 {
     // Some variables to hold information about the players
-	new szPath	[64 + 6];
+	new szNum	[5];
 	new aBGM	[BGM_LIST];
 
     // Create a variable to hold the menu
 	new menu = menu_create("Music Menu: BGM-List",	"music_menu_handler");
 	menu_additem(menu, "Play All.",	"all", 	0);
 	menu_additem(menu, "STOP BGM.",	"stop", 0);
-	menu_addblank(menu);
+	menu_addblank(menu, 0);
 	for(new i = 0; i < ArraySize(g_bgm_list); i++)
 	{
 		ArrayGetArray(g_bgm_list, i, aBGM, sizeof(aBGM));
-		formatex(szPath, charsmax(szPath), "play %s", aBGM[FILE_PATH]);
+		num_to_str(i, szNum, charsmax(szNum));
         // Add the item for this player
-		menu_additem(menu, aBGM[MENU_TITLE], szPath, 0);
+		menu_additem(menu, aBGM[MENU_TITLE], szNum, 0);
     }
 	menu_setprop(menu, MPROP_NUMBER_COLOR, "\y");
 
@@ -433,7 +433,7 @@ public music_menu_handler(id, menu, item)
     }
 		
 	// now lets create some variables that will give us information about the menu and the item that was pressed/chosen
-	new szData[64 + 6], szName[32], szNum[5];
+	new szData[5], szName[32], szNum[5];
 	new _access, item_callback;
 	// heres the function that will give us that information ( since it doesnt magicaly appear )
 	menu_item_getinfo(menu, item, _access, szData, charsmax(szData), szName, charsmax(szName), item_callback);
@@ -475,7 +475,28 @@ public music_menu_handler(id, menu, item)
 public single_playing(szData[], taskid)
 {
 	new id = taskid - TASK_PLAYLIST;
-	client_cmd(id, "mp3 %s", szData);
+	new num = str_to_num(szData);
+	new aBGM[BGM_LIST];
+
+	ArrayGetArray(g_bgm_list, num, aBGM, sizeof(aBGM));
+
+	if (g_isPlaying[id])
+	{
+		if (g_config[id][LOOP])
+		{
+			client_cmd(id, "mp3 play %s", aBGM[FILE_PATH]);
+			set_task(aBGM[BGM_TIME], "single_playing", taskid, szData, 5);
+		}
+		else
+			g_isPlaying[id] = false;
+	}
+	else
+	{
+		g_isPlaying[id] = true;
+		client_cmd(id, "mp3 play %s", aBGM[FILE_PATH]);
+		set_task(aBGM[BGM_TIME], "single_playing", taskid, szData, 5);
+	}
+	return PLUGIN_CONTINUE;
 }
 
 public playlist_playing(param[], taskid)
