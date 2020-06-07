@@ -1,7 +1,9 @@
 #include <amxmodx>
 #include <amxmisc>
 #include <nvault>
+#if AMXX_VERSION_NUM < 190
 #include <amxx_182>
+#endif
 
 #pragma semicolon 1
 
@@ -101,10 +103,10 @@ public plugin_init()
 #endif
 
 	// Add your code here...
-	register_clcmd("mma", "cmdBgmMenu", -1, " - shows a menu of a Music commands");
-	register_clcmd("say", "say_mma");
+	register_clcmd		("mma", "cmdBgmMenu", -1, " - shows a menu of a Music commands");
+	register_clcmd		("say", "say_mma");
 
-	register_concmd("amx_mma_play", "server_bgm", ADMIN_ADMIN, "amx_mma_play <BgmNumber> | server bgm starting");
+	register_concmd		("amx_mma_play", "server_bgm", ADMIN_ADMIN, "amx_mma_play <BgmNumber> | server bgm starting");
 
 
 	g_nv_handle 	  = nvault_open(PL_CONFIG);
@@ -256,7 +258,8 @@ public client_putinserver(id)
 	}
 	new authid[MAX_AUTHID_LENGTH];
 	get_user_authid(id, authid, charsmax(authid));
-	g_config[id][SHUFFLE] = nvault_get(g_nv_handle, authid);
+	g_config[id][SHUFFLE] = nvault_get(g_nv_handle, fmt("%s_SHUFFLE", authid));
+	g_config[id][LOOP] 	  = nvault_get(g_nv_handle, fmt("%s_LOOP", 	  authid));
 
 	set_task_ex(0.1, "get_cl_cvar", id + TASK_CL_CVAR);
 	return PLUGIN_CONTINUE;
@@ -272,7 +275,8 @@ public client_disconnected(id)
 {
 	new authid[MAX_AUTHID_LENGTH];
 	get_user_authid(id, authid, charsmax(authid));
-	nvault_set(g_nv_handle, authid, g_config[id][SHUFFLE]);
+	nvault_set(g_nv_handle, fmt("%s_SHUFFLE", authid), g_config[id][SHUFFLE]);
+	nvault_set(g_nv_handle, fmt("%s_LOOP", 	  authid), g_config[id][LOOP]);
 }
 
 public set_mp3_volume(id, const cvar[], const value[])
@@ -317,9 +321,9 @@ config_showmenu(id)
 {
 	new menu = menu_create("Music Menu: Config", "config_menu_handler");
 	menu_additem(menu, "Playlist Mode^t",	"",	 0, g_config_callback);
-	menu_additem(menu, "Loop Mode^t",	"",	 0, g_config_callback);
-	menu_additem(menu, "Volume Up",		"",	 0, g_config_callback);
-	menu_additem(menu, "Volume Down",	"",	 0, g_config_callback);
+	menu_additem(menu, "Loop Mode^t",		"",	 0, g_config_callback);
+	menu_additem(menu, "Volume Up",			"",	 0, g_config_callback);
+	menu_additem(menu, "Volume Down",		"",	 0, g_config_callback);
 
 	new volbar[] = "VOL:\r[||||||||||||||||||||||\r]";
 	new pos = 7 + (floatround(g_config[id][VOLUME] * 10.0, floatround_floor) * 2);
@@ -338,9 +342,12 @@ public config_menu_callback(id, menu, item)
 	//Get information about the menu item
 	menu_item_getinfo(menu, item, access, szData, charsmax(szData), szName, charsmax(szName), callback);
 
-	if (item == 0)
+	switch (item)
 	{
-		menu_item_setname(menu, item, fmt("Playlist Mode ^t\y[%s]", ((g_config[id][SHUFFLE] > 0) ? "in Shuffle" : "in Order")));
+		case 0:
+			menu_item_setname(menu, item, fmt("Playlist Mode^t\y[%s]", ((g_config[id][SHUFFLE] > 0) ? "in Shuffle" : "in Order")));
+		case 1:
+			menu_item_setname(menu, item, fmt("Loop Mode^t^t\y[%s]", ((g_config[id][LOOP] > 0) ? "ON" : "OFF")));
 	}
 	return PLUGIN_CONTINUE;
 }
@@ -365,6 +372,8 @@ public config_menu_handler(id, menu, item)
 		case 0:
 			g_config[id][SHUFFLE] = (g_config[id][SHUFFLE] > 0) ? 0 : 1;
 		case 1:
+			g_config[id][LOOP]	  = (g_config[id][LOOP] > 0) ? 0 : 1;
+		case 2:
 		{
 			if (g_config[id][VOLUME] < 1.0)
 				g_config[id][VOLUME] += 0.1;
@@ -373,7 +382,7 @@ public config_menu_handler(id, menu, item)
 
 			client_cmd(id, "MP3volume %.1f", g_config[id][VOLUME]);
 		}
-		case 2:
+		case 3:
 		{
 			if (g_config[id][VOLUME] > 0.0)
 				g_config[id][VOLUME] -= 0.1;
@@ -430,6 +439,14 @@ public music_menu_handler(id, menu, item)
 	menu_item_getinfo(menu, item, _access, szData, charsmax(szData), szName, charsmax(szName), item_callback);
 
 
+
+	if (task_exists(id + TASK_PLAYLIST))
+	{
+		g_isPlaying[id] = false;
+		client_cmd(id, "mp3 stop");
+		remove_task(id + TASK_PLAYLIST);
+	}
+
 	if (equali("stop", szData))
 	{
 		client_cmd(id, "mp3 %s", szData);
@@ -442,24 +459,23 @@ public music_menu_handler(id, menu, item)
 		else
 			formatex(szNum, charsmax(szNum), "%d %d", 0, 0);
 
-		if (task_exists(id + TASK_PLAYLIST))
-		{
-			g_isPlaying[id] = false;
-			client_cmd(id, "mp3 stop");
-			remove_task(id + TASK_PLAYLIST);
-		}
-
-		set_task(0.1, "playlist_playing", id + TASK_PLAYLIST, szNum, sizeof(szNum));
 		client_print_color(id, print_chat, "^4[MMA] ^1BGM Start!:^3Playlist.");
+		set_task(0.1, "playlist_playing", id + TASK_PLAYLIST, szNum, sizeof(szNum));
 	}
 	else
 	{
-		client_cmd(id, "mp3 %s", szData);
 		client_print_color(id, print_chat, "^4[MMA] ^1BGM Start!:^3[%s]", szName);
+		set_task(0.1, "single_playing", id + TASK_PLAYLIST, szData, sizeof(szData));
 	}
 
 	menu_destroy(menu);
 	return PLUGIN_HANDLED;
+}
+
+public single_playing(szData[], taskid)
+{
+	new id = taskid - TASK_PLAYLIST;
+	client_cmd(id, "mp3 %s", szData);
 }
 
 public playlist_playing(param[], taskid)
@@ -491,6 +507,14 @@ public playlist_playing(param[], taskid)
 	new no_temp = str_to_num(a) + 1;
 	if (no_temp < ArraySize(g_bgm_list))
 	{
+		formatex(szNum, charsmax(szNum), "%d %d", no_temp, str_to_num(b));
+		set_task(aBGM[BGM_TIME], "playlist_playing", taskid, szNum, sizeof(szNum));
+		return PLUGIN_CONTINUE;
+	}
+
+	if (g_config[id][LOOP])
+	{
+		no_temp = 0;
 		formatex(szNum, charsmax(szNum), "%d %d", no_temp, str_to_num(b));
 		set_task(aBGM[BGM_TIME], "playlist_playing", taskid, szNum, sizeof(szNum));
 		return PLUGIN_CONTINUE;
