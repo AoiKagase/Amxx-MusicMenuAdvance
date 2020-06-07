@@ -1,6 +1,6 @@
 #if AMXX_VERSION_NUM < 190
 // =====================================
-//	Mines Platform 1.8.2 Functions.
+//	Amxmodx 1.8.2 Functions.
 //
 // 	by Aoi.Kagase
 // =====================================
