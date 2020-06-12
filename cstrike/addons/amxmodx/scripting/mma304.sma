@@ -1,8 +1,10 @@
 #include <amxmodx>
 #include <amxmisc>
+#include <hamsandwich>
 #include <nvault>
+
 #if AMXX_VERSION_NUM < 190
-#include <amxx_182>
+	#include <amxx_182>
 #endif
 
 #pragma semicolon 1
@@ -23,7 +25,7 @@
 #define VERSION				"3.04"
 #define AUTHOR				"Aoi.Kagase"
 
-#define PL_CONFIG			"mma"
+#define PL_CONFIG			"mma"		// nvault
 #define MEDIA_LIST			"bgmlist"	// in configdir.
 
 #define TASK_CL_CVAR		51034
@@ -57,9 +59,17 @@ enum _:BGM_CONFIG
 	SHOW_HUD,
 }
 
+enum _:NOW_PLAYING
+{
+	NUM,
+	Float:TIME_TOTAL,
+	Float:TIME_CURRENT,
+	bool:IS_PLAYING,
+}
+
 new Array:g_bgm_list;
 new Array:g_bgm_no		[MAX_PLAYERS + 1];
-new  bool:g_isPlaying	[MAX_PLAYERS + 1];
+new g_isPlaying			[MAX_PLAYERS + 1][NOW_PLAYING];
 new g_config			[MAX_PLAYERS + 1][BGM_CONFIG];
 new g_pcvars			[CVAR_LIST];
 new g_values			[CVAR_VALUE];
@@ -108,6 +118,7 @@ public plugin_init()
 
 	register_concmd		("amx_mma_play", "server_bgm", ADMIN_ADMIN, "amx_mma_play <BgmNumber> | server bgm starting");
 
+	RegisterHam(Ham_Think, "player", "PlayerBgmThink");
 
 	g_nv_handle 	  = nvault_open(PL_CONFIG);
 	g_config_callback = menu_makecallback("config_menu_callback");
@@ -119,6 +130,53 @@ public change_cvars_load(pcvar, const old_value[], const new_value[])
 public change_cvars_round(pcvar, const old_value[], const new_value[])
 	g_values[V_ROUND_BGM]	= str_to_num(new_value);
 #endif
+
+public PlayerBgmThink(id)
+{
+	if (!is_user_connected(id) || is_user_bot(id))
+		return HAM_IGNORED;
+
+	if (g_values[V_ROUND_BGM])
+	{
+		static aBGM[BGM_LIST];
+		static num = g_isPlaying[id][NUM];
+
+		if (!g_isPlaying[id][IS_PLAYING])
+		{
+			if (g_config[id][LOOP])
+			{
+				if (!g_isPlaying[id][IS_PLAYING])
+					random_shuffle(id);
+
+				num = ArrayGetCell(g_bgm_no[id], num);
+			}
+			ArrayGetArray(g_bgm_list, num, aBGM, sizeof(aBGM));
+
+			client_cmd(id, "mp3 play %s", aBGM[FILE_PATH]);
+			client_print_color(id, print_chat, "^4[MMA] ^1Playing:^3%02d:[%s][%02d:%02d]", num + 1, aBGM[MENU_TITLE], floatround(aBGM[BGM_TIME]) / 60, floatround(aBGM[BGM_TIME]) % 60);
+
+			g_isPlaying[id][NUM]++;
+			g_isPlaying[id][TIME_TOTAL] 	= aBGM[BGM_TIME];
+			g_isPlaying[id][TIME_CURRENT]	= 0;
+			g_isPlaying[id][IS_PLAYING]		= true;
+		}
+		else 
+		{
+			if (g_isPlaying[id][TIME_CURRENT] >= g_isPlaying[id][TIME_TOTAL])
+			{
+
+			}
+		}
+	}
+}
+
+show_time_bar(id)
+{
+	#if AMXX_VERSION_NUM >= 190
+	set_dhudmessage(0, 255, 255, 0.30, 0.95, .effects= 0 , _, .holdtime= 5.0);
+	show_dhudmessage(id, "BGM:[>=========]");
+	#endif
+}
 //====================================================
 // Chat command.
 //====================================================
@@ -249,13 +307,8 @@ public client_putinserver(id)
 	if (is_user_bot(id))
 		return PLUGIN_CONTINUE;
 
-	g_isPlaying[id] = false;
-	if (g_values[V_ROUND_BGM])
-	{
-		new szNum[5];
-		formatex(szNum, charsmax(szNum), "%d %d", 0, 1);
-		set_task(0.1, "playlist_playing", id + TASK_PLAYLIST, szNum, charsmax(szNum));
-	}
+	g_isPlaying[id][IS_PLAYING] = false;
+
 	new authid[MAX_AUTHID_LENGTH];
 	get_user_authid(id, authid, charsmax(authid));
 	g_config[id][SHUFFLE] = nvault_get(g_nv_handle, fmt("%s_SHUFFLE", authid));
@@ -284,14 +337,6 @@ public client_disconnected(id)
 public set_mp3_volume(id, const cvar[], const value[])
 {
 	g_config[id][VOLUME] = str_to_float(value);
-}
-
-public show_time_bar(id)
-{
-	#if AMXX_VERSION_NUM >= 190
-	set_dhudmessage(0, 255, 255, 0.30, 0.95, .effects= 0 , _, .holdtime= 5.0);
-	show_dhudmessage(id, "BGM:[>=========]");
-	#endif
 }
 
 public server_bgm()
@@ -456,7 +501,7 @@ public music_menu_handler(id, menu, item)
 
 	if (task_exists(id + TASK_PLAYLIST))
 	{
-		g_isPlaying[id] = false;
+		g_isPlaying[id][IS_PLAYING] = false;
 		client_cmd(id, "mp3 stop");
 		remove_task(id + TASK_PLAYLIST);
 	}
@@ -494,7 +539,7 @@ public single_playing(szData[], taskid)
 
 	ArrayGetArray(g_bgm_list, num, aBGM, sizeof(aBGM));
 
-	if (g_isPlaying[id])
+	if (g_isPlaying[id][IS_PLAYING])
 	{
 		if (g_config[id][LOOP])
 		{
@@ -502,60 +547,15 @@ public single_playing(szData[], taskid)
 			set_task(aBGM[BGM_TIME], "single_playing", taskid, szData, 5);
 		}
 		else
-			g_isPlaying[id] = false;
+			g_isPlaying[id][IS_PLAYING] = false;
 	}
 	else
 	{
-		g_isPlaying[id] = true;
+		g_isPlaying[id][IS_PLAYING] = true;
 		client_cmd(id, "mp3 play %s", aBGM[FILE_PATH]);
 		set_task(aBGM[BGM_TIME], "single_playing", taskid, szData, 5);
 	}
 	return PLUGIN_CONTINUE;
-}
-
-public playlist_playing(param[], taskid)
-{
-	new aBGM[BGM_LIST];
-	new num, szNum[5];
-	new id = taskid - TASK_PLAYLIST;
-
-	if (!is_user_connected(id) || is_user_bot(id))
-		return PLUGIN_HANDLED;
-
-	new a[3], b[2];
-	parse(param, a, charsmax(a), b, charsmax(b));
-	num = str_to_num(a);
-	if (str_to_num(b))
-	{
-		if (!g_isPlaying[id])
-			random_shuffle(id);
-
-		num = ArrayGetCell(g_bgm_no[id], num);
-	}
-
-
-	ArrayGetArray(g_bgm_list, num, aBGM, sizeof(aBGM));
-	client_cmd(id, "mp3 play %s", aBGM[FILE_PATH]);
-	client_print_color(id, print_chat, "^4[MMA] ^1Playing:^3%02d:[%s][%02d:%02d]", str_to_num(a) + 1, aBGM[MENU_TITLE], floatround(aBGM[BGM_TIME]) / 60, floatround(aBGM[BGM_TIME]) % 60);
-
-	g_isPlaying[id] = true;
-	new no_temp = str_to_num(a) + 1;
-	if (no_temp < ArraySize(g_bgm_list))
-	{
-		formatex(szNum, charsmax(szNum), "%d %d", no_temp, str_to_num(b));
-		set_task(aBGM[BGM_TIME], "playlist_playing", taskid, szNum, sizeof(szNum));
-		return PLUGIN_CONTINUE;
-	}
-
-	if (g_config[id][LOOP])
-	{
-		no_temp = 0;
-		formatex(szNum, charsmax(szNum), "%d %d", no_temp, str_to_num(b));
-		set_task(aBGM[BGM_TIME], "playlist_playing", taskid, szNum, sizeof(szNum));
-		return PLUGIN_CONTINUE;
-	}
-	g_isPlaying[id] = false;
-	return PLUGIN_HANDLED;
 }
 
 public plugin_end()
