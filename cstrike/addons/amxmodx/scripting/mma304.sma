@@ -54,7 +54,7 @@ enum _:BGM_CONFIG
 	SHUFFLE,
 	LOOP,
 	Float:VOLUME,
-
+	SHOW_HUD,
 }
 
 new Array:g_bgm_list;
@@ -260,6 +260,7 @@ public client_putinserver(id)
 	get_user_authid(id, authid, charsmax(authid));
 	g_config[id][SHUFFLE] = nvault_get(g_nv_handle, fmt("%s_SHUFFLE", authid));
 	g_config[id][LOOP] 	  = nvault_get(g_nv_handle, fmt("%s_LOOP", 	  authid));
+	g_config[id][SHOW_HUD]= nvault_get(g_nv_handle, fmt("%s_SHOWHUD", authid));	
 
 	set_task_ex(0.1, "get_cl_cvar", id + TASK_CL_CVAR);
 	return PLUGIN_CONTINUE;
@@ -277,6 +278,7 @@ public client_disconnected(id)
 	get_user_authid(id, authid, charsmax(authid));
 	nvault_set(g_nv_handle, fmt("%s_SHUFFLE", authid), g_config[id][SHUFFLE]);
 	nvault_set(g_nv_handle, fmt("%s_LOOP", 	  authid), g_config[id][LOOP]);
+	nvault_set(g_nv_handle, fmt("%s_SHOWHUD", authid), g_config[id][SHOW_HUD]);	
 }
 
 public set_mp3_volume(id, const cvar[], const value[])
@@ -284,6 +286,13 @@ public set_mp3_volume(id, const cvar[], const value[])
 	g_config[id][VOLUME] = str_to_float(value);
 }
 
+public show_time_bar(id)
+{
+	#if AMXX_VERSION_NUM >= 190
+	set_dhudmessage(0, 255, 255, 0.30, 0.95, .effects= 0 , _, .holdtime= 5.0);
+	show_dhudmessage(id, "BGM:[>=========]");
+	#endif
+}
 
 public server_bgm()
 {
@@ -320,6 +329,7 @@ public server_bgm()
 config_showmenu(id)
 {
 	new menu = menu_create("Music Menu: Config", "config_menu_handler");
+	menu_additem(menu, "Show Time bar^t",	"",	 0, g_config_callback);
 	menu_additem(menu, "Playlist Mode^t",	"",	 0, g_config_callback);
 	menu_additem(menu, "Loop Mode^t",		"",	 0, g_config_callback);
 	menu_additem(menu, "Volume Up",			"",	 0, g_config_callback);
@@ -345,8 +355,10 @@ public config_menu_callback(id, menu, item)
 	switch (item)
 	{
 		case 0:
-			menu_item_setname(menu, item, fmt("Playlist Mode^t\y[%s]", ((g_config[id][SHUFFLE] > 0) ? "in Shuffle" : "in Order")));
+			menu_item_setname(menu, item, fmt("Show Time bar^t\y[%s]", ((g_config[id][SHOW_HUD] > 0) ? "ON" : "OFF")));
 		case 1:
+			menu_item_setname(menu, item, fmt("Playlist Mode^t\y[%s]", ((g_config[id][SHUFFLE] > 0) ? "in Shuffle" : "in Order")));
+		case 2:
 			menu_item_setname(menu, item, fmt("Loop Mode^t^t\y[%s]", ((g_config[id][LOOP] > 0) ? "ON" : "OFF")));
 	}
 	return PLUGIN_CONTINUE;
@@ -370,10 +382,12 @@ public config_menu_handler(id, menu, item)
 	switch(item)
 	{
 		case 0:
-			g_config[id][SHUFFLE] = (g_config[id][SHUFFLE] > 0) ? 0 : 1;
+			g_config[id][SHOW_HUD]= (g_config[id][SHOW_HUD] > 0) ? 0 : 1;
 		case 1:
-			g_config[id][LOOP]	  = (g_config[id][LOOP] > 0) ? 0 : 1;
+			g_config[id][SHUFFLE] = (g_config[id][SHUFFLE] > 0) ? 0 : 1;
 		case 2:
+			g_config[id][LOOP]	  = (g_config[id][LOOP] > 0) ? 0 : 1;
+		case 3:
 		{
 			if (g_config[id][VOLUME] < 1.0)
 				g_config[id][VOLUME] += 0.1;
@@ -382,7 +396,7 @@ public config_menu_handler(id, menu, item)
 
 			client_cmd(id, "MP3volume %.1f", g_config[id][VOLUME]);
 		}
-		case 3:
+		case 4:
 		{
 			if (g_config[id][VOLUME] > 0.0)
 				g_config[id][VOLUME] -= 0.1;
