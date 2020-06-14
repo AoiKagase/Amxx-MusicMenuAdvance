@@ -60,13 +60,20 @@ enum _:BGM_CONFIG
 	SHOW_HUD,
 }
 
+enum _:PLAY_STATE
+{
+	STOP,
+	START,
+	PLAYING,
+}
+
 enum _:NOW_PLAYING
 {
 	NUM,
 	MODE,
 	Float:TIME_TOTAL,
 	Float:TIME_CURRENT,
-	bool:IS_PLAYING,
+	PLAY_STATE:STATE,
 }
 
 new Array:g_bgm_list;
@@ -138,54 +145,60 @@ public PlayerBgmThink(const id)
 	if (!is_user_connected(id) || is_user_bot(id))
 		return HAM_IGNORED;
 
-	if (g_values[V_ROUND_BGM])
+	static aBGM[BGM_LIST];
+	static Float:times;
+
+	switch(g_isPlaying[id][STATE])
 	{
-		static aBGM[BGM_LIST];
-		static num;
-		num = g_isPlaying[id][NUM];
-
-		if (!g_isPlaying[id][IS_PLAYING])
-		{
-			if (g_isPlaying[id][SHUFFLE] && num == 0 && g_config[id][LOOP])
-				random_shuffle(id);
-
-			num = ArrayGetCell(g_bgm_no[id], num);
-			ArrayGetArray(g_bgm_list, num, aBGM, sizeof(aBGM));
-
-			client_cmd(id, "mp3 play %s", aBGM[FILE_PATH]);
-			client_print_color(id, print_chat, "^4[MMA] ^1Playing:^3%02d:[%s][%02d:%02d]", num + 1, aBGM[MENU_TITLE], floatround(aBGM[BGM_TIME]) / 60, floatround(aBGM[BGM_TIME]) % 60);
-
-			g_isPlaying[id][TIME_TOTAL] 	= aBGM[BGM_TIME];
-			g_isPlaying[id][TIME_CURRENT]	= get_gametime();
-			g_isPlaying[id][IS_PLAYING]		= true;
-		}
-		else 
+		case STOP:
 		{
 			if (g_config[id][LOOP])
 			{
-				if ((get_gametime() - g_isPlaying[id][TIME_CURRENT]) >= g_isPlaying[id][TIME_TOTAL])
+				if (g_isPlaying[id][MODE])
 				{
 					if (g_isPlaying[id][NUM] < ArraySize(g_bgm_list) - 1)
 						g_isPlaying[id][NUM]++;
 					else
 						g_isPlaying[id][NUM] = 0;
-					g_isPlaying[id][TIME_CURRENT] = get_gametime();
-					g_isPlaying[id][IS_PLAYING]	  = false;
+
+					if (g_config[id][SHUFFLE] && g_isPlaying[id][NUM] == 0)
+						random_shuffle(id);
 				}
+				g_isPlaying[id][TIME_CURRENT] = get_gametime();
+				g_isPlaying[id][STATE] 	 	  = PLAY_STATE:START;
+			}
+		}
+		case START:
+		{
+			if (g_isPlaying[id][SHUFFLE] && g_isPlaying[id][NUM] == 0)
+				random_shuffle(id);
+
+			ArrayGetArray(g_bgm_list, ArrayGetCell(g_bgm_no[id], g_isPlaying[id][NUM]), aBGM, sizeof(aBGM));
+			client_cmd(id, "mp3 play %s", aBGM[FILE_PATH]);
+			client_print_color(id, print_chat, "^4[MMA] ^1Playing:^3%02d:[%s][%02d:%02d]", g_isPlaying[id][NUM] + 1, aBGM[MENU_TITLE], floatround(aBGM[BGM_TIME]) / 60, floatround(aBGM[BGM_TIME]) % 60);
+			g_isPlaying[id][TIME_TOTAL] 	= aBGM[BGM_TIME];
+			g_isPlaying[id][TIME_CURRENT]	= get_gametime();
+			g_isPlaying[id][STATE]			= PLAY_STATE:PLAYING;
+		}
+		case PLAYING:
+		{
+			times = get_gametime() - g_isPlaying[id][TIME_CURRENT];
+			if (g_config[id][SHOW_HUD])
+			{
+				if (times < g_isPlaying[id][TIME_TOTAL])
+					show_time_bar(id, floatround(times / g_isPlaying[id][TIME_TOTAL] * 100) / 10);
+				else
+					g_isPlaying[id][STATE] = PLAY_STATE:STOP;
+			}
+
+			if ((get_gametime() - g_isPlaying[id][TIME_CURRENT]) >= g_isPlaying[id][TIME_TOTAL])
+			{
+				g_isPlaying[id][TIME_CURRENT] = get_gametime();
+				g_isPlaying[id][STATE] 	 	  = PLAY_STATE:STOP;
 			}
 		}
 	}
 
-	static Float:times;
-	if (g_isPlaying[id][IS_PLAYING])
-	{
-		times = get_gametime() - g_isPlaying[id][TIME_CURRENT];
-		if (g_config[id][SHOW_HUD])
-		if (times < g_isPlaying[id][TIME_TOTAL])
-		{
-			show_time_bar(id, floatround(times / g_isPlaying[id][TIME_TOTAL] * 100) / 10);
-		}
-	}
 	return HAM_IGNORED;
 }
 
@@ -340,19 +353,27 @@ public get_cl_cvar(id)
 
 	new authid[MAX_AUTHID_LENGTH];
 	get_user_authid(id, authid, charsmax(authid));
-	g_config[id][SHUFFLE] = nvault_get(g_nv_handle, fmt("%s_SHUFFLE", authid));
-	g_config[id][LOOP] 	  = nvault_get(g_nv_handle, fmt("%s_LOOP", 	  authid));
-	g_config[id][SHOW_HUD]= nvault_get(g_nv_handle, fmt("%s_SHOWHUD", authid));	
-	g_isPlaying[id][IS_PLAYING] = false;
+
+	g_config[id][SHUFFLE]  = nvault_get(g_nv_handle, fmt("%s_SHUFFLE",authid));
+	g_config[id][LOOP] 	   = nvault_get(g_nv_handle, fmt("%s_LOOP",   authid));
+	g_config[id][SHOW_HUD] = nvault_get(g_nv_handle, fmt("%s_SHOWHUD",authid));	
+	if (g_values[V_ROUND_BGM])
+	{
+		g_isPlaying[id][MODE]  = 1; // playlist
+		g_isPlaying[id][NUM]   = 0;
+		g_isPlaying[id][STATE] = PLAY_STATE:START;
+	}
+	else
+		g_isPlaying[id][STATE] = PLAY_STATE:STOP;
 }
 
 public client_disconnected(id)
 {
 	new authid[MAX_AUTHID_LENGTH];
 	get_user_authid(id, authid, charsmax(authid));
-	nvault_set(g_nv_handle, fmt("%s_SHUFFLE", authid), g_config[id][SHUFFLE]);
-	nvault_set(g_nv_handle, fmt("%s_LOOP", 	  authid), g_config[id][LOOP]);
-	nvault_set(g_nv_handle, fmt("%s_SHOWHUD", authid), g_config[id][SHOW_HUD]);	
+	nvault_set(g_nv_handle, fmt("%s_SHUFFLE", authid), fmt("%d", g_config[id][SHUFFLE]));
+	nvault_set(g_nv_handle, fmt("%s_LOOP", 	  authid), fmt("%d", g_config[id][LOOP]));
+	nvault_set(g_nv_handle, fmt("%s_SHOWHUD", authid), fmt("%d", g_config[id][SHOW_HUD]));	
 }
 
 public set_mp3_volume(id, const cvar[], const value[])
@@ -513,45 +534,36 @@ public music_menu_handler(id, menu, item)
     }
 		
 	// now lets create some variables that will give us information about the menu and the item that was pressed/chosen
-	new szData[5], szName[32], szNum[5];
+	new szData[5], szName[32];
 	new _access, item_callback;
 	// heres the function that will give us that information ( since it doesnt magicaly appear )
 	menu_item_getinfo(menu, item, _access, szData, charsmax(szData), szName, charsmax(szName), item_callback);
 
-
-
-	if (task_exists(id + TASK_PLAYLIST))
-	{
-		g_isPlaying[id][IS_PLAYING] = false;
-		client_cmd(id, "mp3 stop");
-		remove_task(id + TASK_PLAYLIST);
-	}
+	client_cmd(id, "mp3 stop");
+	g_isPlaying[id][MODE] 		= 0; // single
+	g_isPlaying[id][NUM]  		= 0;
+	g_isPlaying[id][STATE] 		= PLAY_STATE:STOP;
 
 	if (equali("stop", szData))
 	{
-		client_cmd(id, "mp3 %s", szData);
 		client_print_color(id, print_chat, "^4[MMA] ^1BGM Stopped.");
 	}
 	else if (equali("all", szData))
 	{
 		if (g_config[id][SHUFFLE])
-			formatex(szNum, charsmax(szNum), "%d %d", 0, 1);
-		else
-			formatex(szNum, charsmax(szNum), "%d %d", 0, 0);
+			random_shuffle(id);
 
 		client_print_color(id, print_chat, "^4[MMA] ^1BGM Start!:^3Playlist.");
-		g_isPlaying[id][MODE] = 1; // playlist
-		g_isPlaying[id][NUM]  = 0;
-		g_isPlaying[id][IS_PLAYING] = false;
+		g_isPlaying[id][MODE] 		= 1; // playlist
+		g_isPlaying[id][STATE] 		= PLAY_STATE:START;
 	}
 	else
 	{
+		new num = str_to_num(szData);		
 		client_print_color(id, print_chat, "^4[MMA] ^1BGM Start!:^3[%s]", szName);
-		new num = str_to_num(szData);
-
-		g_isPlaying[id][MODE] = 0; // single
-		g_isPlaying[id][NUM]  = num;
-		g_isPlaying[id][IS_PLAYING] = false;
+		g_isPlaying[id][MODE] 		= 0; // single
+		g_isPlaying[id][NUM]  		= num;
+		g_isPlaying[id][STATE] 		= PLAY_STATE:START;
 	}
 
 	menu_destroy(menu);
