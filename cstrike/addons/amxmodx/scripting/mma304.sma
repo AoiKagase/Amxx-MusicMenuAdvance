@@ -62,6 +62,7 @@ enum _:BGM_CONFIG
 
 enum _:PLAY_STATE
 {
+	MANUAL_STOP,
 	STOP,
 	START,
 	PLAYING,
@@ -151,6 +152,10 @@ public PlayerBgmThink(const id)
 
 	switch(g_isPlaying[id][STATE])
 	{
+		case MANUAL_STOP:
+		{
+
+		}
 		case STOP:
 		{
 			if (g_config[id][LOOP])
@@ -171,7 +176,7 @@ public PlayerBgmThink(const id)
 		}
 		case START:
 		{
-			if (g_isPlaying[id][SHUFFLE] && g_isPlaying[id][NUM] == 0)
+			if (g_isPlaying[id][SHUFFLE] > 0 && g_isPlaying[id][NUM] == 0)
 				random_shuffle(id);
 
 			ArrayGetArray(g_bgm_list, ArrayGetCell(g_bgm_no[id], g_isPlaying[id][NUM]), aBGM, sizeof(aBGM));
@@ -341,6 +346,7 @@ public client_connect(id)
 			new j = random_num(0, ArraySize(g_bgm_list) - 1);
 			ArrayGetArray(g_bgm_list, j, aBGM, sizeof(aBGM));
 			client_cmd(id, "mp3 play %s", aBGM[FILE_PATH]);
+			random_shuffle(id);
 		}
 	}
 	return PLUGIN_CONTINUE;
@@ -351,6 +357,9 @@ public client_putinserver(id)
 	if (is_user_bot(id))
 		return PLUGIN_CONTINUE;
 
+	g_isPlaying[id][STATE] = PLAY_STATE:MANUAL_STOP;
+	random_shuffle(id);
+
 	set_task_ex(0.1, "get_cl_cvar", id + TASK_CL_CVAR);
 	return PLUGIN_CONTINUE;
 }
@@ -360,12 +369,24 @@ public get_cl_cvar(id)
 	id -= TASK_CL_CVAR;
 	query_client_cvar(id, "MP3volume", "set_mp3_volume");
 
-	new authid[MAX_AUTHID_LENGTH];
+	new authid[MAX_AUTHID_LENGTH], temp[2], timestamp;
 	get_user_authid(id, authid, charsmax(authid));
 
-	g_config[id][SHUFFLE]  = nvault_get(g_nv_handle, fmt("%s_SHUFFLE",authid));
-	g_config[id][LOOP] 	   = nvault_get(g_nv_handle, fmt("%s_LOOP",   authid));
-	g_config[id][SHOW_HUD] = nvault_get(g_nv_handle, fmt("%s_SHOWHUD",authid));	
+	if (nvault_lookup(g_nv_handle, fmt("%s_SHUFFLE",authid), temp, charsmax(temp), timestamp) == 1)
+		g_config[id][SHUFFLE]	= str_to_num(temp);
+	else
+		g_config[id][SHUFFLE]	= 1;
+	
+	if (nvault_lookup(g_nv_handle, fmt("%s_LOOP",authid), temp, charsmax(temp), timestamp) == 1)
+		g_config[id][LOOP]		= str_to_num(temp);
+	else
+		g_config[id][LOOP]		= 1;
+
+	if (nvault_lookup(g_nv_handle, fmt("%s_SHOWHUD",authid), temp, charsmax(temp), timestamp) == 1)
+		g_config[id][SHOW_HUD]	= str_to_num(temp);
+	else
+		g_config[id][SHOW_HUD]	= 1;
+
 	if (g_values[V_ROUND_BGM])
 	{
 		g_isPlaying[id][MODE]  = 1; // playlist
@@ -373,7 +394,7 @@ public get_cl_cvar(id)
 		g_isPlaying[id][STATE] = PLAY_STATE:START;
 	}
 	else
-		g_isPlaying[id][STATE] = PLAY_STATE:STOP;
+		g_isPlaying[id][STATE] = PLAY_STATE:MANUAL_STOP;
 }
 
 public client_disconnected(id)
@@ -551,7 +572,7 @@ public music_menu_handler(id, menu, item)
 	client_cmd(id, "mp3 stop");
 	g_isPlaying[id][MODE] 		= 0; // single
 	g_isPlaying[id][NUM]  		= 0;
-	g_isPlaying[id][STATE] 		= PLAY_STATE:STOP;
+	g_isPlaying[id][STATE] 		= PLAY_STATE:MANUAL_STOP;
 
 	if (equali("stop", szData))
 	{
