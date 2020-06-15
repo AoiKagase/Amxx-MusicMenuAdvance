@@ -84,6 +84,7 @@ new g_pcvars			[CVAR_LIST];
 new g_values			[CVAR_VALUE];
 new g_nv_handle;
 new g_config_callback;
+new g_hudobj;
 
 // 00:00
 stock Float:StrToTime(szTime[])
@@ -131,7 +132,7 @@ public plugin_init()
 
 	g_nv_handle 	  = nvault_open(PL_CONFIG);
 	g_config_callback = menu_makecallback("config_menu_callback");
-
+	g_hudobj 		  = CreateHudSyncObj(); // Create a hud object
 }
 #if AMXX_VERSION_NUM >= 190
 public change_cvars_load(pcvar, const old_value[], const new_value[])
@@ -182,11 +183,13 @@ public PlayerBgmThink(const id)
 		}
 		case PLAYING:
 		{
-			times = get_gametime() - g_isPlaying[id][TIME_CURRENT];
 			if (g_config[id][SHOW_HUD])
 			{
+				times = get_gametime() - g_isPlaying[id][TIME_CURRENT];
+				times = (times / g_isPlaying[id][TIME_TOTAL] * 100.0) / 10.0;
+
 				if (times < g_isPlaying[id][TIME_TOTAL])
-					show_time_bar(id, floatround(times / g_isPlaying[id][TIME_TOTAL] * 100) / 10);
+					show_time_bar(id, floatround(times), (g_isPlaying[id][TIME_TOTAL] / 10.0));
 				else
 					g_isPlaying[id][STATE] = PLAY_STATE:STOP;
 			}
@@ -202,16 +205,22 @@ public PlayerBgmThink(const id)
 	return HAM_IGNORED;
 }
 
-show_time_bar(id, percent)
+show_time_bar(id, percent, Float:hold)
 {
-	#if AMXX_VERSION_NUM >= 190
 	new bar[11] = "==========";
-	for(new i = 0; i < percent; i++)
-		bar[i] = '>';
-	set_hudmessage(0, 255, 255, 0.30, 0.95, 0 , 0.0, 5.0, 0.0, 0.0, 100);
-	show_hudmessage(id, "BGM:[%s]", bar);
-	#endif
+	static oldpercent[33];
+
+	if (oldpercent[id] != percent)
+	{
+		for(new i = 0; i < percent; i++)
+			bar[i] = '>';
+		set_hudmessage(0, 255, 255, 0.30, 0.95, 0 , 0.0, hold, 0.0, 0.0, 4);
+	//	show_hudmessage(id, "BGM:[%s]", bar);
+		ShowSyncHudMsg(id, g_hudobj, "BGM:[%s]", bar);
+	}
+	oldpercent[id] = percent;
 }
+
 //====================================================
 // Chat command.
 //====================================================
