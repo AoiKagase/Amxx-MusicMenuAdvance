@@ -23,7 +23,7 @@
 #endif
 
 #define PLUGIN				"Music Menu Advance"
-#define VERSION				"3.04"
+#define VERSION				"3.05"
 #define AUTHOR				"Aoi.Kagase"
 
 #define PL_CONFIG			"mma"		// nvault
@@ -210,6 +210,8 @@ public PlayerBgmThink(const id)
 	return HAM_IGNORED;
 }
 
+
+
 show_time_bar(id, percent, Float:hold)
 {
 	new bar[11] = "==========";
@@ -243,10 +245,42 @@ public say_mma(id, level, cid)
 	{
 		if (equali(sRight, "config"))
 			config_showmenu(id);
+		else if(equali(sRight, "next"))
+			play_next(id);
+		else if(equali(sRight, "back"))
+			play_back(id);
+		else if(equali(sRight, "stop"))
+			play_stop(id);
 		else
 			music_showmenu(id);
 	}  
 	return PLUGIN_CONTINUE;
+}
+
+play_next(id)
+{
+	if (g_isPlaying[id][NUM] < ArraySize(g_bgm_list) - 1)
+		g_isPlaying[id][NUM]++;
+	else
+		g_isPlaying[id][NUM] = 0;
+
+	g_isPlaying[id][STATE] = PLAY_STATE:STOP;
+}
+
+play_back(id)
+{
+	if (g_isPlaying[id][NUM] > 0)
+		g_isPlaying[id][NUM]--;
+	else
+		g_isPlaying[id][NUM] = ArraySize(g_bgm_list) - 1;
+
+	g_isPlaying[id][STATE] = PLAY_STATE:STOP;
+}
+
+play_stop(id)
+{
+	g_isPlaying[id][NUM] = 0;
+	g_isPlaying[id][STATE] = PLAY_STATE:MANUAL_STOP;
 }
 
 public cmdBgmMenu(id, level, cid)
