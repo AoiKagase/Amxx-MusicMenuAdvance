@@ -179,7 +179,11 @@ public PlayerBgmThink(const id)
 			if (g_isPlaying[id][SHUFFLE] > 0 && g_isPlaying[id][NUM] == 0)
 				random_shuffle(id);
 
-			ArrayGetArray(g_bgm_list, ArrayGetCell(g_bgm_no[id], g_isPlaying[id][NUM]), aBGM, sizeof(aBGM));
+			if (g_isPlaying[id][MODE] == 0)
+				ArrayGetArray(g_bgm_list, g_isPlaying[id][NUM], aBGM, sizeof(aBGM));
+			else
+				ArrayGetArray(g_bgm_list, ArrayGetCell(g_bgm_no[id], g_isPlaying[id][NUM]), aBGM, sizeof(aBGM));
+
 			client_cmd(id, "mp3 play %s", aBGM[FILE_PATH]);
 			client_print_color(id, print_chat, "^4[MMA] ^1Playing:^3%02d:[%s][%02d:%02d]", g_isPlaying[id][NUM] + 1, aBGM[MENU_TITLE], floatround(aBGM[BGM_TIME]) / 60, floatround(aBGM[BGM_TIME]) % 60);
 			g_isPlaying[id][TIME_TOTAL] 	= aBGM[BGM_TIME];
@@ -209,8 +213,6 @@ public PlayerBgmThink(const id)
 
 	return HAM_IGNORED;
 }
-
-
 
 show_time_bar(id, percent, Float:hold)
 {
@@ -403,20 +405,20 @@ public get_cl_cvar(id)
 	id -= TASK_CL_CVAR;
 	query_client_cvar(id, "MP3volume", "set_mp3_volume");
 
-	new authid[MAX_AUTHID_LENGTH], temp[2], timestamp;
+	new authid[MAX_AUTHID_LENGTH], temp[5], timestamp;
 	get_user_authid(id, authid, charsmax(authid));
 
-	if (nvault_lookup(g_nv_handle, fmt("%s_SHUFFLE",authid), temp, charsmax(temp), timestamp) == 1)
+	if (nvault_lookup(g_nv_handle, fmt("%s_SHUFFLE",authid), temp, charsmax(temp), timestamp))
 		g_config[id][SHUFFLE]	= str_to_num(temp);
 	else
 		g_config[id][SHUFFLE]	= 1;
 	
-	if (nvault_lookup(g_nv_handle, fmt("%s_LOOP",authid), temp, charsmax(temp), timestamp) == 1)
+	if (nvault_lookup(g_nv_handle, fmt("%s_LOOP",authid), temp, charsmax(temp), timestamp))
 		g_config[id][LOOP]		= str_to_num(temp);
 	else
 		g_config[id][LOOP]		= 1;
 
-	if (nvault_lookup(g_nv_handle, fmt("%s_SHOWHUD",authid), temp, charsmax(temp), timestamp) == 1)
+	if (nvault_lookup(g_nv_handle, fmt("%s_SHOWHUD",authid), temp, charsmax(temp), timestamp))
 		g_config[id][SHOW_HUD]	= str_to_num(temp);
 	else
 		g_config[id][SHOW_HUD]	= 1;
@@ -557,6 +559,13 @@ public config_menu_handler(id, menu, item)
 			client_cmd(id, "MP3volume %.1f", g_config[id][VOLUME]);
 		}
 	}
+
+	new authid[MAX_AUTHID_LENGTH];
+	get_user_authid(id, authid, charsmax(authid));
+	nvault_set(g_nv_handle, fmt("%s_SHUFFLE", authid), fmt("%d", g_config[id][SHUFFLE]));
+	nvault_set(g_nv_handle, fmt("%s_LOOP", 	  authid), fmt("%d", g_config[id][LOOP]));
+	nvault_set(g_nv_handle, fmt("%s_SHOWHUD", authid), fmt("%d", g_config[id][SHOW_HUD]));	
+
 	config_showmenu(id);
 	return PLUGIN_HANDLED;
 }
