@@ -89,17 +89,31 @@ stock fmt(const szString[], any:...)
 	return result;
 }
 
-stock set_task_ex(Float:time, const function[], id = 0, const any:parameter[] = "", len = 0, SetTaskFlags:flags = SetTask_Once, repeat = 0)
+stock explode_string(const text[], const split[], buffers[][], maxStrings, maxStringLength, bool:copyRemainder = false)
 {
-	new strFlags[2]; // There should never be a need to set more than 1 flag
-	get_flags(_:flags, strFlags, charsmax(strFlags));
-	set_task(time, function, id, parameter, len, strFlags, repeat);
-}
+	new reloc_idx, idx, total;
 
-stock split_string(const szSource[], const szDelim[], szParsed[], iMaxChars)
-{
-    new iPos = strfind(szSource, szDelim);
-    return (iPos > -1) ? copy(szParsed, min(iPos, iMaxChars), szSource) + strlen(szDelim) : -1;
+	if (maxStrings < 1 || !split[0])
+	{
+		return 0;
+	}
+
+	while ((idx = split_string(text[reloc_idx], split, buffers[total], maxStringLength)) != -1)
+	{
+		reloc_idx += idx;
+		if (++total == maxStrings)
+		{
+			if (copyRemainder)
+			{
+				copy(buffers[total-1], maxStringLength, text[reloc_idx-idx]);
+			}
+			return total;
+		}
+	}
+
+	copy(buffers[total++], maxStringLength, text[reloc_idx]);
+
+	return total;
 }
 
 /**
@@ -190,37 +204,8 @@ stock get_playersnum_ex(GetPlayersFlags:flags = GetPlayers_None, const team[] = 
 	return PlayersNum;
 }
 
-/**
- * Emulates strbreak() using argparse().
- *
- * @param text          Source input string.
- * @param left          Buffer to store string left part.
- * @param leftlen       Maximum length of the string part buffer.
- * @param right         Buffer to store string right part.
- * @param rightlen      Maximum length of the string part buffer.
- *
- * @return              -1 if no match was found; otherwise, an index into source
- *                      marking the first index after the searched text.  The
- *                      index is always relative to the start of the input string.
- */
 stock argbreak(const text[], left[], leftlen, right[], rightlen)
 {
-	new pos = argparse(text, 0, left, leftlen);
-
-	if (pos == -1)
-	{
-		return -1;
-	}
-
-	new textlen = strlen(text);
-
-	while (pos < textlen && isspace(text[pos]))
-	{
-		pos++;
-	}
-
-	copy(right, rightlen, text[pos]);
-
-	return pos;
+	return strbreak(text, left, leftlen, right, rightlen);
 }
 #endif
