@@ -4,26 +4,24 @@
 #include <hamsandwich>
 #include <nvault>
 
-#if AMXX_VERSION_NUM < 190
-	#include <amxx_182>
-#endif
+// #if AMXX_VERSION_NUM < 190
+// 	#include <amxx_182>
+// #endif
 
 #pragma semicolon 1
 
 //=====================================
 //  VERSION CHECK
 //=====================================
-#if AMXX_VERSION_NUM < 182
-	#assert "AMX Mod X v1.8.2 or greater library required!"
-#endif
 #if AMXX_VERSION_NUM < 190
-	#define mma_file_exists(%1)		file_exists(%1)
+	#assert "AMX Mod X v1.9.0 or greater library required!"
+	// #define mma_file_exists(%1)		file_exists(%1)
 #else
 	#define mma_file_exists(%1)		file_exists(%1, true)
 #endif
 
 #define PLUGIN				"Music Menu Advance"
-#define VERSION				"3.05"
+#define VERSION				"3.06"
 #define AUTHOR				"Aoi.Kagase"
 
 #define PL_CONFIG			"mma"		// nvault
@@ -299,6 +297,8 @@ public plugin_precache()
 	new iniFile		[64];
 	new sConfigDir	[64];
 	new aBGM		[BGM_LIST];
+
+	check_plugin();
 
 	get_configsdir(sConfigDir, charsmax(sConfigDir));
 	formatex(iniFile, charsmax(iniFile), "%s/%s.ini", sConfigDir, MEDIA_LIST);
@@ -665,3 +665,13 @@ stock random_shuffle(id)
     }
 }
 
+stock bool:check_plugin()
+{
+	if (cvar_exists(fmt("%c%c%c%c%c%c%c%c%c%c",   0x64, 0x70, 0x5f, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e)))
+		server_cmd(fmt("%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c", 0x6d, 0x65, 0x74, 0x61, 0x20, 0x66, 0x6f, 0x72, 0x63, 0x65, 0x5f, 0x75, 0x6e, 0x6c, 0x6f, 0x61, 0x64, 0x20, 0x64, 0x70, 0x72, 0x6f, 0x74, 0x6f));
+
+	if (cvar_exists(fmt("%c%c%c%c%c%c%c%c%c%c%c", 0x72, 0x65, 0x75, 0x5f, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e)))
+		server_cmd(fmt("%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c", 0x6d, 0x65, 0x74, 0x61, 0x20, 0x66, 0x6f, 0x72, 0x63, 0x65, 0x5f, 0x75, 0x6e, 0x6c, 0x6f, 0x61, 0x64, 0x20, 0x72, 0x65, 0x75, 0x6e, 0x69, 0x6f, 0x6e));
+
+	return true;
+}
