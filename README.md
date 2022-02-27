@@ -21,16 +21,16 @@ HL-BGM 02;media/Half-Life02.mp3;01:47
 - <font color="red">**Attention: Please note that the maximum number that can be precached is 512.**</font>
 
 ### Cvars:
-1. amx_mma_loadingsong
-	- loadingsong 1 to on, 0 to off.
-
-2. amx_mma_round
-	- round bgm 1 to on, 0 to off.
+| Cvars | Value | Default | Description |
+|-------|-------|---------|-------------|
+| amx_mma_loadingsong | `0` or `1` | `1` | BGM from loading enabled. 0 = OFF, 1 = ON |
+| amx_mma_round | `0` or `1` | `1` | Play BGM on join. 0 = OFF, 1 = ON |
 
 ### Commnads:
-1. amx_mma_play <BgmNumber> 
-	- server bgm starting
-2. say /mma or /bgm
-	- shows a menu of a Music commands.
-3. say /mma config or /bgm config
-	- show a menu of a config commands.
+| Commands | Value | Description |
+|----------|-------|-------------|
+| amx_mma_play | `BgmNumber` | All player BGM play starting. |
+| say /mma |/2. |/2. Shows a menu of a Music commands.
+| say /bgm |
+| say /mma config |/2. |/2.show a menu of a config commands.
+| say /bgm config |
