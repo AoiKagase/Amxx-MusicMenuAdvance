@@ -30,7 +30,5 @@ HL-BGM 02;media/Half-Life02.mp3;01:47
 | Commands | Value | Description |
 |----------|-------|-------------|
 | amx_mma_play | `BgmNumber` | All player BGM play starting. |
-| say /mma |/2. |/2. Shows a menu of a Music commands.
-| say /bgm |
-| say /mma config |/2. |/2.show a menu of a config commands.
-| say /bgm config |
+| say /mma<br/>say /bgm | | Shows a menu of a Music commands. |
+| say /mma config<br>say /bgm config| |show a menu of a config commands. |
