@@ -414,25 +414,29 @@ public get_cl_cvar(id)
 	get_user_authid(id, authid, charsmax(authid));
 
 	// SHUFFLE MODE.
-	if (nvault_lookup(g_nv_handle, fmt("%s_SHUFFLE",authid), temp, charsmax(temp), timestamp))
+	nvault_lookup(g_nv_handle, fmt("%s_SHUFFLE",authid), temp, charsmax(temp), timestamp);
+	if (!equali(temp, ""))
 		g_config[id][SHUFFLE]	= str_to_num(temp);
 	else
 		g_config[id][SHUFFLE]	= 1;
 	
 	// LOOP MODE.
-	if (nvault_lookup(g_nv_handle, fmt("%s_LOOP",authid), temp, charsmax(temp), timestamp))
+	nvault_lookup(g_nv_handle, fmt("%s_LOOP",authid), temp, charsmax(temp), timestamp);
+	if (!equali(temp, ""))
 		g_config[id][LOOP]		= str_to_num(temp);
 	else
 		g_config[id][LOOP]		= 1;
 
 	// Show HUD.
-	if (nvault_lookup(g_nv_handle, fmt("%s_SHOWHUD",authid), temp, charsmax(temp), timestamp))
+	nvault_lookup(g_nv_handle, fmt("%s_SHOWHUD",authid), temp, charsmax(temp), timestamp);
+	if (!equali(temp, ""))
 		g_config[id][SHOW_HUD]	= str_to_num(temp);
 	else
 		g_config[id][SHOW_HUD]	= 1;
 
 	// Show HUD.
-	if (nvault_lookup(g_nv_handle, fmt("%s_PLAYONJOIN",authid), temp, charsmax(temp), timestamp))
+	nvault_lookup(g_nv_handle, fmt("%s_PLAYONJOIN",authid), temp, charsmax(temp), timestamp);
+	if (!equali(temp, ""))
 		g_config[id][PLAY_ON_JOIN]	= str_to_num(temp);
 	else
 		g_config[id][PLAY_ON_JOIN]	= 1;
